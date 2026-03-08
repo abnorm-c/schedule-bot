@@ -232,26 +232,32 @@
         }
         
         // Запись на занятие
-        async function bookSlot(slotId) {
-            try {
-                // Отправляем данные в бота
-                tg.sendData(JSON.stringify({
-                    action: 'book',
-                    slot_id: slotId,
-                    user_id: userId
-                }));
-                
-                showNotification('✅ Запрос отправлен!');
-                
-                // Закрываем через секунду
-                setTimeout(() => {
-                    tg.close();
-                }, 1000);
-                
-            } catch (error) {
-                showNotification('❌ Ошибка при записи', true);
-            }
-        }
+		async function bookSlot(slotId) {
+			console.log("Нажали записаться, slotId:", slotId);  // ← добавить
+			
+			try {
+				// Отправляем данные в бота
+				const dataToSend = JSON.stringify({
+					action: 'book',
+					slot_id: slotId,
+					user_id: userId
+				});
+				console.log("Отправляем:", dataToSend);  // ← добавить
+				
+				tg.sendData(dataToSend);
+				
+				console.log("Данные отправлены");  // ← добавить
+				showNotification('✅ Запрос отправлен!');
+				
+				setTimeout(() => {
+					tg.close();
+				}, 2000);
+				
+			} catch (error) {
+				console.error("Ошибка:", error);  // ← добавить
+				showNotification('❌ Ошибка при записи', true);
+			}
+		}
         
         // Загружаем данные при открытии
         loadSchedule();
