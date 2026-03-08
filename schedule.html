@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Расписание занятий</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #f8f9fa;
+            color: #1a1a1a;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #0088cc;
+        }
+        
+        .balance-card {
+            background: linear-gradient(135deg, #0088cc, #006699);
+            color: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0,136,204,0.2);
+        }
+        
+        .balance-title {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+        
+        .balance-amount {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .slot {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+        
+        .slot:active {
+            transform: scale(0.98);
+        }
+        
+        .slot-info {
+            flex: 1;
+        }
+        
+        .slot-day {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .slot-time {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .slot-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0088cc;
+            margin-right: 16px;
+        }
+        
+        .book-btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            min-width: 100px;
+        }
+        
+        .book-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .book-btn:not(:disabled):hover {
+            background: #006699;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 16px;
+            right: 16px;
+            background: #333;
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            animation: slideUp 0.3s;
+            z-index: 1000;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>📅 Расписание</h1>
+        
+        <!-- Баланс будет подставляться сюда -->
+        <div class="balance-card" id="balanceCard">
+            <div class="balance-title">Твой баланс</div>
+            <div class="balance-amount" id="balanceAmount">0 ₽</div>
+        </div>
+        
+        <!-- Список занятий -->
+        <div id="slotsContainer">
+            <div class="loading">Загрузка расписания...</div>
+        </div>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем на весь экран
+        tg.ready();
+        
+        // Данные пользователя
+        const userId = tg.initDataUnsafe?.user?.id;
+        const username = tg.initDataUnsafe?.user?.username;
+        
+        // Функция показа уведомления
+        function showNotification(text, isError = false) {
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.style.background = isError ? '#dc3545' : '#28a745';
+            notif.textContent = text;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 3000);
+        }
+        
+        // Загрузка расписания и баланса
+        async function loadSchedule() {
+            try {
+                // Здесь мы будем запрашивать данные у бота
+                // Пока используем тестовые данные
+                const mockData = {
+                    balance: 1500,
+                    slots: [
+                        { id: 1, day: 'ПН', date: '10 марта', time: '16:00', price: 500, available: true },
+                        { id: 2, day: 'ПН', date: '10 марта', time: '18:00', price: 500, available: false },
+                        { id: 3, day: 'ВТ', date: '11 марта', time: '16:00', price: 500, available: true },
+                        { id: 4, day: 'ВТ', date: '11 марта', time: '18:00', price: 500, available: true },
+                        { id: 5, day: 'СР', date: '12 марта', time: '16:00', price: 500, available: true },
+                    ]
+                };
+                
+                // Обновляем баланс
+                document.getElementById('balanceAmount').textContent = mockData.balance + ' ₽';
+                
+                // Отрисовываем слоты
+                renderSlots(mockData.slots, mockData.balance);
+                
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                document.getElementById('slotsContainer').innerHTML = 
+                    '<div class="empty-state">❌ Ошибка загрузки расписания</div>';
+            }
+        }
+        
+        // Отрисовка слотов
+        function renderSlots(slots, balance) {
+            const container = document.getElementById('slotsContainer');
+            
+            if (!slots || slots.length === 0) {
+                container.innerHTML = '<div class="empty-state">📭 Нет свободных окошек</div>';
+                return;
+            }
+            
+            let html = '';
+            slots.forEach(slot => {
+                const canBook = slot.available && balance >= slot.price;
+                html += `
+                    <div class="slot">
+                        <div class="slot-info">
+                            <div class="slot-day">${slot.day} ${slot.date}</div>
+                            <div class="slot-time">${slot.time}</div>
+                        </div>
+                        <div class="slot-price">${slot.price} ₽</div>
+                        <button class="book-btn" 
+                            onclick="bookSlot(${slot.id})"
+                            ${!canBook ? 'disabled' : ''}>
+                            ${!slot.available ? 'Занято' : (balance < slot.price ? 'Не хватает' : 'Записаться')}
+                        </button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Запись на занятие
+        async function bookSlot(slotId) {
+            try {
+                // Отправляем данные в бота
+                tg.sendData(JSON.stringify({
+                    action: 'book',
+                    slot_id: slotId,
+                    user_id: userId
+                }));
+                
+                showNotification('✅ Запрос отправлен!');
+                
+                // Закрываем через секунду
+                setTimeout(() => {
+                    tg.close();
+                }, 1000);
+                
+            } catch (error) {
+                showNotification('❌ Ошибка при записи', true);
+            }
+        }
+        
+        // Загружаем данные при открытии
+        loadSchedule();
+    </script>
+</body>
+</html>
